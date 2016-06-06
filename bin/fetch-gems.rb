@@ -58,4 +58,3 @@ class GemGetter
     data["has_more"]
   end
 end
-

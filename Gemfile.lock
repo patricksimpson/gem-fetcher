@@ -31,6 +31,3 @@ DEPENDENCIES
   rack
   rake
   slack-api
-
-BUNDLED WITH
-   1.12.3
