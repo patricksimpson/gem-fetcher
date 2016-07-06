@@ -10,11 +10,49 @@ $client = Slack::Client.new token: token
 
 # Get users list
 puts 'fetching latest data...'
-$users = Hash[$client.users_list["members"].map{|m| [m["id"], m["name"]]}]
-$cid = "C02V6AFJP"  # This is the GEMS channel
-$last_ts = ''
 $more = true
 $messages = []
+
+class Client
+  GEMS_CHANNEL_ID = 'C02V6AFJP'
+
+  attr_reader :timestamp
+  def initialize(timestamp)
+    @timestamp = timestamp
+  end
+
+  def history
+    slack.channels_history channel: GEMS_CHANNEL_ID, count: 1000, latest: timestamp, inclusive: true
+  end
+
+  def messages
+    history['messages']
+  end
+
+  def users
+    @users ||= slack.users_list['members'].collect do |m|
+      User.new m['name'], m['id']
+    end
+  end
+
+  def has_more?
+    history['has_more']
+  end
+
+  private
+
+  def slack
+    @slack ||= Slack::Client.new(token: ENV["TOKEN"])
+  end
+end
+
+class User
+  attr_accessor :name, :slack_id
+  def initialize(name, slack_id)
+    @name = name
+    @slack_id = slack_id
+  end
+end
 
 class GemGetter
 
@@ -31,8 +69,8 @@ class GemGetter
 
 
   def self.get_messages(ts)
-    data = $client.channels_history(channel: "#{$cid}", count: 1000, latest: ts, inclusive: true)
-    messages = data["messages"]
+    slack = Client.new(ts)
+    messages = slack.messages
     puts "We have #{messages.count} messages starting at '#{ts}' time"
     messages.each do |message|
       has_public = false
@@ -43,7 +81,7 @@ class GemGetter
         reactions.each do |r|
           if  /^earth_*/.match(r["name"])
             has_public = true
-            user_name = $users[message["user"]]
+            user_name = slack.users.select { |user| user.name == message['user'] }.first
             text = message["text"].inspect
             if user_name == "gem-me-bot"
               start_text = ""
@@ -52,8 +90,8 @@ class GemGetter
             end
             if users_mentioned = text.scan(/\<\@(U[A-Z0-9]+)\>/)
               users_mentioned.each do |u|
-                user_mention = $users[u[0]]
-                puts user_mention
+                puts u
+                user_mention = slack.users.select { |user| user.slack_id == u[0] }.first.name
                 text = text.sub("<@#{u[0]}>", "@#{user_mention}")
               end
             end
@@ -70,6 +108,6 @@ class GemGetter
     $last_ts = message["ts"]
     end
 
-    data["has_more"]
+    slack.has_more?
   end
 end
