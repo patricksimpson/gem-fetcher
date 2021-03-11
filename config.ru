@@ -2,7 +2,11 @@ require './bin/fetch-gems'
 require 'rack/rewrite'
 
 use Rack::Rewrite do
-  r301 %r{.*}, 'https://gems.seesparkbox.com/', :scheme => 'http'
+  r301 %r{.*}, 'https://gems.sparkbox.com/', :scheme => 'http'
+
+  r301 %r{.*}, 'https://gems.sparkbox.com$&', :if => Proc.new {|rack_env|
+    rack_env['SERVER_NAME'] != 'gems.sparkbox.com'
+  }
 end
 
 use Rack::Static,
